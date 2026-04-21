@@ -6,6 +6,7 @@
 
 <style>
 body { text-align:center; font-family:sans-serif; background:#f4f4f4; }
+
 svg { background:white; margin-top:20px; border-radius:10px; }
 
 circle { fill:#bdc3c7; stroke:#2c3e50; }
@@ -31,15 +32,12 @@ td, th {
 .silver { background: silver; font-weight:bold; }
 .bronze { background: #cd7f32; color:white; font-weight:bold; }
 
-#panel {
-    margin-top:10px;
-}
+#panel { margin-top:10px; }
 
-input {
-    padding:6px;
-}
+input { padding:6px; }
 </style>
 </head>
+
 <body>
 
 <h2>DFS vs Kullanıcı</h2>
@@ -47,6 +45,7 @@ input {
 <div id="panel">
     <input id="nameInput" placeholder="İsmini gir">
     <button onclick="resetGame()">Başla / Reset</button>
+    <button onclick="clearScores()">Verileri Sil</button>
 </div>
 
 <div>
@@ -141,7 +140,7 @@ function drawPlayer(){
 // ---------------- KONTROL ----------------
 document.addEventListener("keydown",(e)=>{
 
-    // 🧠 INPUT ODAKLIYKEN OYUN KAPALI
+    // 🧠 input odaktaysa oyun çalışmaz
     if (document.activeElement.tagName === "INPUT") return;
 
     if(gameFinished) return;
@@ -248,7 +247,7 @@ function resetGame(){
     drawPlayer();
 }
 
-// ---------------- SKOR SİSTEMİ ----------------
+// ---------------- SKOR ----------------
 function saveScore(score){
 
     let name = document.getElementById("nameInput").value.trim();
@@ -288,6 +287,21 @@ function renderScores(){
             </tr>
         `;
     });
+}
+
+// ---------------- ŞİFRELİ SİLME ----------------
+function clearScores(){
+
+    let pass = prompt("Şifreyi gir:");
+    if(pass !== "password"){
+        alert("Yanlış şifre!");
+        return;
+    }
+
+    localStorage.removeItem("dfsScores");
+    renderScores();
+
+    alert("Skorlar silindi!");
 }
 
 // ---------------- INIT ----------------
