@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>DFS vs Kullanıcı</title>
+
+<style>
+body { text-align:center; font-family:sans-serif; background:#f4f4f4; }
+svg { background:white; margin-top:20px; border-radius:10px; }
+
+circle { fill:#bdc3c7; stroke:#2c3e50; }
+.visited { fill:#2ecc71; }
+.player { fill:#3498db; }
+
+text { font-size:10px; pointer-events:none; }
+
+button { margin:5px; padding:8px 15px; }
+
+table {
+    margin:20px auto;
+    border-collapse: collapse;
+}
+
+td, th {
+    border:1px solid #ccc;
+    padding:6px 12px;
+}
+
+/* 🏆 TOP 3 */
+.gold { background: gold; font-weight:bold; }
+.silver { background: silver; font-weight:bold; }
+.bronze { background: #cd7f32; color:white; font-weight:bold; }
+
+#panel {
+    margin-top:10px;
+}
+
+input {
+    padding:6px;
+}
+</style>
+</head>
+<body>
+
+<h2>DFS vs Kullanıcı</h2>
+
+<div id="panel">
+    <input id="nameInput" placeholder="İsmini gir">
+    <button onclick="resetGame()">Başla / Reset</button>
+</div>
+
+<div>
+    <p>Kullanıcı TPS: <span id="userTPS">0</span></p>
+    <p>DFS TPS: <span id="dfsTPS">0</span></p>
+    <p>Oran: <span id="oran">0%</span></p>
+</div>
+
+<h3>🏆 Skor Tablosu</h3>
+
+<table>
+<thead>
+<tr>
+    <th>#</th>
+    <th>İsim</th>
+    <th>%</th>
+</tr>
+</thead>
+<tbody id="scoreTable"></tbody>
+</table>
+
+<svg id="graf" width="500" height="500"></svg>
+
+<script>
+
+const ROWS = 6, COLS = 6, GAP = 70;
+const svg = document.getElementById("graf");
+
+let graf = {};
+let ziyaret = new Set();
+
+let player;
+let gameStarted = false;
+let gameFinished = false;
+
+let userMoves = 0;
+let dfsMoves = 0;
+let startTime;
+
+// ---------------- GRID ----------------
+function createGrid(){
+    svg.innerHTML = "";
+    graf = {};
+
+    for (let r=0;r<ROWS;r++){
+        for (let c=0;c<COLS;c++){
+
+            let id = `${r}-${c}`;
+            graf[id] = [];
+
+            let x = 50 + c*GAP;
+            let y = 50 + r*GAP;
+
+            let circle = document.createElementNS("http://www.w3.org/2000/svg","circle");
+            circle.setAttribute("cx",x);
+            circle.setAttribute("cy",y);
+            circle.setAttribute("r",12);
+            circle.setAttribute("id",id);
+
+            let text = document.createElementNS("http://www.w3.org/2000/svg","text");
+            text.setAttribute("x",x);
+            text.setAttribute("y",y);
+            text.textContent = id;
+
+            svg.appendChild(circle);
+            svg.appendChild(text);
+        }
+    }
+
+    for (let r=0;r<ROWS;r++){
+        for (let c=0;c<COLS;c++){
+
+            let id = `${r}-${c}`;
+            let dirs = [[0,1],[1,0],[-1,0],[0,-1]];
+
+            for (let [dr,dc] of dirs){
+                let nr=r+dr, nc=c+dc;
+                if(nr>=0 && nr<ROWS && nc>=0 && nc<COLS){
+                    graf[id].push(`${nr}-${nc}`);
+                }
+            }
+        }
+    }
+}
+
+// ---------------- PLAYER ----------------
+function drawPlayer(){
+    document.querySelectorAll("circle").forEach(c=>c.classList.remove("player"));
+    document.getElementById(`${player.r}-${player.c}`).classList.add("player");
+}
+
+// ---------------- KONTROL ----------------
+document.addEventListener("keydown",(e)=>{
+
+    // 🧠 INPUT ODAKLIYKEN OYUN KAPALI
+    if (document.activeElement.tagName === "INPUT") return;
+
+    if(gameFinished) return;
+
+    let r = player.r;
+    let c = player.c;
+
+    if(e.key==="w" || e.key==="ArrowUp") r--;
+    if(e.key==="s" || e.key==="ArrowDown") r++;
+    if(e.key==="a" || e.key==="ArrowLeft") c--;
+    if(e.key==="d" || e.key==="ArrowRight") c++;
+
+    if(r>=0 && r<ROWS && c>=0 && c<COLS){
+
+        if(!gameStarted){
+            gameStarted = true;
+            startTime = Date.now();
+            baslatDFS();
+        }
+
+        player = {r,c};
+        userMoves++;
+        drawPlayer();
+    }
+});
+
+// ---------------- DFS ----------------
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+async function dfs(node){
+
+    if(ziyaret.has(node)) return;
+
+    ziyaret.add(node);
+    dfsMoves++;
+
+    document.getElementById(node).classList.add("visited");
+
+    await sleep(40);
+
+    for(let n of graf[node]){
+        await dfs(n);
+    }
+}
+
+async function baslatDFS(){
+
+    ziyaret.clear();
+    dfsMoves = 0;
+
+    document.querySelectorAll("circle").forEach(c=>{
+        c.classList.remove("visited");
+    });
+
+    await dfs("0-0");
+
+    gameFinished = true;
+
+    let elapsed = (Date.now() - startTime)/1000;
+
+    let userTPS = userMoves / elapsed;
+    let dfsTPS = dfsMoves / elapsed;
+
+    let ratio = dfsTPS === 0 ? 0 : (userTPS / dfsTPS * 100);
+
+    document.getElementById("oran").textContent = ratio.toFixed(1) + "%";
+
+    saveScore(ratio);
+}
+
+// ---------------- TPS ----------------
+setInterval(()=>{
+
+    if(!gameStarted || gameFinished) return;
+
+    let elapsed = (Date.now() - startTime)/1000;
+
+    let userTPS = (userMoves / elapsed).toFixed(2);
+    let dfsTPS = (dfsMoves / elapsed).toFixed(2);
+
+    document.getElementById("userTPS").textContent = userTPS;
+    document.getElementById("dfsTPS").textContent = dfsTPS;
+
+    let oran = dfsTPS == 0 ? 0 : (userTPS / dfsTPS * 100).toFixed(1);
+    document.getElementById("oran").textContent = oran + "%";
+
+}, 200);
+
+// ---------------- RESET ----------------
+function resetGame(){
+
+    player = {r:0,c:0};
+    gameStarted = false;
+    gameFinished = false;
+
+    userMoves = 0;
+    dfsMoves = 0;
+
+    document.getElementById("userTPS").textContent = "0";
+    document.getElementById("dfsTPS").textContent = "0";
+    document.getElementById("oran").textContent = "0%";
+
+    createGrid();
+    drawPlayer();
+}
+
+// ---------------- SKOR SİSTEMİ ----------------
+function saveScore(score){
+
+    let name = document.getElementById("nameInput").value.trim();
+    if(!name) name = "Anonim";
+
+    let scores = JSON.parse(localStorage.getItem("dfsScores")) || [];
+
+    scores.push({ name, score });
+
+    scores.sort((a,b)=>b.score - a.score);
+    scores = scores.slice(0,5);
+
+    localStorage.setItem("dfsScores", JSON.stringify(scores));
+
+    renderScores();
+}
+
+function renderScores(){
+
+    let scores = JSON.parse(localStorage.getItem("dfsScores")) || [];
+    let tbody = document.getElementById("scoreTable");
+
+    tbody.innerHTML = "";
+
+    scores.forEach((s,i)=>{
+
+        let cls = "";
+        if(i===0) cls="gold";
+        else if(i===1) cls="silver";
+        else if(i===2) cls="bronze";
+
+        tbody.innerHTML += `
+            <tr class="${cls}">
+                <td>${i+1}</td>
+                <td>${s.name}</td>
+                <td>${s.score.toFixed(1)}%</td>
+            </tr>
+        `;
+    });
+}
+
+// ---------------- INIT ----------------
+createGrid();
+resetGame();
+renderScores();
+
+</script>
+
+</body>
+</html>
